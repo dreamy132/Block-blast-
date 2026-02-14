@@ -13,7 +13,7 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #121212;
+  background: #0f0f0f;
   color: white;
   text-align: center;
   margin: 0;
@@ -24,7 +24,7 @@ h1 { margin-top: 15px; }
 #board {
   display: grid;
   grid-template-columns: repeat(8, 42px);
-  gap: 5px;
+  gap: 6px;
   justify-content: center;
   margin: 20px auto;
 }
@@ -32,12 +32,14 @@ h1 { margin-top: 15px; }
 .cell {
   width: 42px;
   height: 42px;
-  background: #2a2a2a;
+  background: #1f1f1f;
   border-radius: 8px;
+  transition: 0.2s;
 }
 
 .filled {
-  background: #00d4ff;
+  background: #00e5ff;
+  box-shadow: 0 0 8px #00e5ff;
 }
 
 #pieces {
@@ -50,6 +52,7 @@ h1 { margin-top: 15px; }
 .piece {
   display: grid;
   gap: 4px;
+  cursor: pointer;
 }
 
 .block {
@@ -59,12 +62,23 @@ h1 { margin-top: 15px; }
   border-radius: 5px;
 }
 
+#gameOverScreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
 button {
-  padding: 8px 15px;
-  border-radius: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
   border: none;
-  margin-top: 10px;
+  margin-top: 15px;
   font-size: 16px;
+  background: #00e5ff;
 }
 </style>
 </head>
@@ -73,10 +87,16 @@ button {
 
 <h1>Block Blast</h1>
 <h2>Score: <span id="score">0</span></h2>
+<h3>High Score: <span id="highScore">0</span></h3>
 
 <div id="board"></div>
 <div id="pieces"></div>
-<button onclick="restart()">Restart</button>
+
+<div id="gameOverScreen">
+  <h2>Game Over</h2>
+  <p>Final Score: <span id="finalScore"></span></p>
+  <button onclick="restart()">Play Again</button>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -85,6 +105,8 @@ const size = 8;
 let board = [];
 let score = 0;
 let selected = null;
+let highScore = localStorage.getItem("bb_high") || 0;
+document.getElementById("highScore").textContent = highScore;
 
 const shapes = [
   [[1,1],[1,1]],
@@ -96,9 +118,10 @@ const shapes = [
 ];
 
 function init() {
-  const boardDiv = document.getElementById("board");
-  boardDiv.innerHTML = "";
   board = [];
+  document.getElementById("board").innerHTML = "";
+  document.getElementById("pieces").innerHTML = "";
+  document.getElementById("gameOverScreen").style.display = "none";
 
   for (let r=0;r<size;r++){
     board[r]=[];
@@ -107,7 +130,7 @@ function init() {
       const cell=document.createElement("div");
       cell.className="cell";
       cell.onclick=()=>tryPlace(r,c);
-      boardDiv.appendChild(cell);
+      document.getElementById("board").appendChild(cell);
     }
   }
 
@@ -132,6 +155,7 @@ function generatePieces(){
     const div=document.createElement("div");
     div.className="piece";
     div.style.gridTemplateColumns=`repeat(${shape[0].length},22px)`;
+    div._shape = shape;
 
     shape.forEach(row=>{
       row.forEach(cell=>{
@@ -172,11 +196,17 @@ function tryPlace(row,col){
   selected.el.remove();
   selected=null;
 
-  clearLines();
+  const cleared = clearLines();
+  score += 5 + (cleared * 10);
+  document.getElementById("score").textContent=score;
+
   draw();
 
   if(document.querySelectorAll(".piece").length===0)
     generatePieces();
+
+  if(!movesAvailable())
+    gameOver();
 }
 
 function clearLines(){
@@ -201,10 +231,35 @@ function clearLines(){
     }
   }
 
-  if(cleared){
-    score+=cleared*10;
-    document.getElementById("score").textContent=score;
+  return cleared;
+}
+
+function movesAvailable(){
+  const pieces=document.querySelectorAll(".piece");
+  for(let piece of pieces){
+    const shape=piece._shape;
+    for(let r=0;r<size;r++){
+      for(let c=0;c<size;c++){
+        if(canPlace(shape,r,c))
+          return true;
+      }
+    }
   }
+  return false;
+}
+
+function gameOver(){
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("gameOverScreen").style.display="flex";
+
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("bb_high",highScore);
+    document.getElementById("highScore").textContent=highScore;
+  }
+
+  if(navigator.vibrate)
+    navigator.vibrate(200);
 }
 
 window.restart=function(){
